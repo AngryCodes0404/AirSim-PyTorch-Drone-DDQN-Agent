@@ -16,32 +16,36 @@ from PIL import Image
 import numpy as np
 
 import airsim
-#import setup_path
+
+# import setup_path
 
 MOVEMENT_INTERVAL = 1
+
 
 class DroneEnv(object):
     """Drone environment class using AirSim python API"""
 
     def __init__(self, useDepth=False):
         self.client = airsim.MultirotorClient()
-        self.last_dist = self.get_distance(self.client.getMultirotorState().kinematics_estimated.position)
+        self.last_dist = self.get_distance(
+            self.client.getMultirotorState().kinematics_estimated.position
+        )
         self.quad_offset = (0, 0, 0)
         self.useDepth = useDepth
 
     def step(self, action):
         """Step"""
-        #print("new step ------------------------------")
+        # print("new step ------------------------------")
 
         self.quad_offset = self.interpret_action(action)
-        #print("quad_offset: ", self.quad_offset)
+        # print("quad_offset: ", self.quad_offset)
 
         quad_vel = self.client.getMultirotorState().kinematics_estimated.linear_velocity
         self.client.moveByVelocityAsync(
             quad_vel.x_val + self.quad_offset[0],
             quad_vel.y_val + self.quad_offset[1],
             quad_vel.z_val + self.quad_offset[2],
-            MOVEMENT_INTERVAL
+            MOVEMENT_INTERVAL,
         ).join()
         collision = self.client.simGetCollisionInfo().has_collided
 
@@ -49,8 +53,10 @@ class DroneEnv(object):
         quad_state = self.client.getMultirotorState().kinematics_estimated.position
         quad_vel = self.client.getMultirotorState().kinematics_estimated.linear_velocity
 
-        if quad_state.z_val < - 7.3:
-            self.client.moveToPositionAsync(quad_state.x_val, quad_state.y_val, -7, 1).join()
+        if quad_state.z_val < -7.3:
+            self.client.moveToPositionAsync(
+                quad_state.x_val, quad_state.y_val, -7, 1
+            ).join()
 
         result, done = self.compute_reward(quad_state, quad_vel, collision)
         state, image = self.get_obs()
@@ -59,12 +65,16 @@ class DroneEnv(object):
 
     def reset(self):
         self.client.reset()
-        self.last_dist = self.get_distance(self.client.getMultirotorState().kinematics_estimated.position)
+        self.last_dist = self.get_distance(
+            self.client.getMultirotorState().kinematics_estimated.position
+        )
         self.client.enableApiControl(True)
         self.client.armDisarm(True)
         self.client.takeoffAsync().join()
         quad_state = self.client.getMultirotorState().kinematics_estimated.position
-        self.client.moveToPositionAsync(quad_state.x_val, quad_state.y_val, -7, 1).join()
+        self.client.moveToPositionAsync(
+            quad_state.x_val, quad_state.y_val, -7, 1
+        ).join()
 
         obs, image = self.get_obs()
 
@@ -74,7 +84,12 @@ class DroneEnv(object):
         if self.useDepth:
             # get depth image
             responses = self.client.simGetImages(
-                [airsim.ImageRequest(0, airsim.ImageType.DepthPlanner, pixels_as_float=True)])
+                [
+                    airsim.ImageRequest(
+                        0, airsim.ImageType.DepthPlanner, pixels_as_float=True
+                    )
+                ]
+            )
             response = responses[0]
             img1d = np.array(response.image_data_float, dtype=np.float)
             img1d = img1d * 3.5 + 30
@@ -118,7 +133,6 @@ class DroneEnv(object):
             else:
                 reward += diff
 
-
             self.last_dist = dist
 
         done = 0
@@ -130,7 +144,6 @@ class DroneEnv(object):
             time.sleep(1)
 
         return reward, done
-
 
     def interpret_action(self, action):
         """Interprete action"""
